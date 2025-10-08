@@ -1,0 +1,37 @@
+[package]
+name = "roblox-cli"
+readme = "README.md"
+description = "Roblox interface in the terminal"
+repository = "https://github.com/elde-n/roblox-cli"
+
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+
+[features]
+rusttls = ["reqwest/rustls-tls"]
+
+[dependencies]
+clap = { version = "4.5.41", features = ["derive"] }
+confy = "1.0.0"
+console = "0.16.0"
+dirs = "6.0.0"
+flate2 = "1.1.2"
+futures = "0.3.31"
+infer = "0.19.0"
+reqwest = { version = "0.12.18", default-features = false, features = [
+    "json",
+    "default-tls",
+    "multipart",
+    "stream"
+] }
+roblox-api = "0.1.6"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.143"
+tokio = { version = "1.47.1", features = ["full"] }
+url = "2.5.4"
+xdg-utils = "0.4.0"
+
+[[bin]]
+name = "rbx"
+path = "src/main.rs"
