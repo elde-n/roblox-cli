@@ -195,7 +195,7 @@ async fn main() {
         },
 
         Commands::Login(login) => match &login.command {
-            LoginCommands::NewQuick => action::login::quick_login(&mut client).await,
+            LoginCommands::NewQuick => action::login::quick_login(&mut client, &account).await,
             LoginCommands::Authorize { code } => {
                 action::login::authorize_login(&mut client, &code).await
             }

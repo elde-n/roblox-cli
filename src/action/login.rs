@@ -1,9 +1,19 @@
+use std::io::Write;
+
 use roblox_api::{api::auth_token_service, client::Client};
 
-use crate::object::{Field, ObjectBuilder, Value};
+use crate::{
+    config::Account,
+    object::{Field, ObjectBuilder, Value},
+};
 
-pub(crate) async fn quick_login(client: &mut Client) {
+pub(crate) async fn quick_login(client: &mut Client, account: &Account) {
     // TODO: print authenticated account and prompt first
+
+    if !prompt(&format!("Create login for {}?", account.name)) {
+        println!("warn: login creation cancelled");
+        return;
+    };
 
     let token = auth_token_service::v1::login_create(client)
         .await
@@ -42,6 +52,7 @@ pub(crate) async fn quick_login(client: &mut Client) {
 }
 
 pub(crate) async fn authorize_login(client: &mut Client, code: &str) {
+    let info = auth_token_service::v1::inspect_code(client, code).await;
     let info = auth_token_service::v1::inspect_code(client, code)
         .await
         .expect("error: failed to inspect authentication code");
@@ -60,9 +71,46 @@ pub(crate) async fn authorize_login(client: &mut Client, code: &str) {
 
     print!("{}", object);
 
-    print!("Verify login? [y/N]\nn");
+    if !prompt("Verify login?") {
+        println!("warn: login verification cancelled");
+        return;
+    }
 
-    // auth_token_service::v1::validate_code(client, code)
-    //     .await
-    //     .expect("error: failed to validate authentication code");
+    auth_token_service::v1::validate_code(client, code)
+        .await
+        .expect("error: failed to validate authentication code");
+    println!("info: validating code");
+}
+
+fn prompt(title: &str) -> bool {
+    loop {
+        print!("{title} [y/N] ");
+        std::io::stdout()
+            .flush()
+            .expect("error: failed to flush to stdout");
+
+        let mut prompt = String::new();
+        std::io::stdin()
+            .read_line(&mut prompt)
+            .expect("error: failed to read stdin");
+
+        match prompt
+            .to_lowercase()
+            .split_whitespace()
+            .collect::<String>()
+            .as_str()
+        {
+            "y" => {
+                return true;
+            }
+
+            "n" | "" => {
+                return false;
+            }
+
+            _ => {
+                println!("error: unable to read prompt, try again")
+            }
+        };
+    }
 }
