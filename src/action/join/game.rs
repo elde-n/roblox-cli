@@ -55,22 +55,28 @@ pub(crate) fn run(account: &Account, id: u64, job_id: Option<&str>) {
     todo!("Make a pull request, I'm not sure which xdg utils windows has");
 
     // Assuming we are using sober, we need to manually update the cookie file
-    let roblox_client = xdg_utils::query_default_app("x-scheme-handler/https");
-    if roblox_client
-        .expect("error: failed to find `Sober` roblox client")
-        .starts_with(SOBER_ROBLOX_CLIENT)
-    {
-        const SOBER_COOKIES_PATH: &str = ".var/app/org.vinegarhq.Sober/data/sober/cookies";
+    let roblox_client = Command::new("xdg-mime")
+        .args(&["query", "default", "x-scheme-handler/roblox"])
+        .output()
+        .ok();
 
-        let home = dirs::home_dir().unwrap();
-        let mut cookie_file = File::options()
-            .write(true)
-            .open(home.join(SOBER_COOKIES_PATH))
-            .unwrap();
+    if let Some(roblox_client) = roblox_client {
+        if String::from_utf8_lossy(&roblox_client.stdout)
+            .to_string()
+            .starts_with(SOBER_ROBLOX_CLIENT)
+        {
+            const SOBER_COOKIES_PATH: &str = ".var/app/org.vinegarhq.Sober/data/sober/cookies";
 
-        cookie_file
-            .write_all(format!(".ROBLOSECURITY={}", account.cookie).as_bytes())
-            .unwrap();
+            let home = dirs::home_dir().unwrap();
+            let mut cookie_file = File::options()
+                .write(true)
+                .open(home.join(SOBER_COOKIES_PATH))
+                .unwrap();
+
+            cookie_file
+                .write_all(format!(".ROBLOSECURITY={}; ", account.cookie).as_bytes())
+                .unwrap();
+        }
     }
 
     // TODO: lock file
