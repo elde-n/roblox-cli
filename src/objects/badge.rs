@@ -1,103 +1,69 @@
 use roblox_api::api::badges::v1::Badge as ApiBadge;
 
-use crate::object::{Field, FieldStyle, Object, ObjectBuilder, Value};
+use crate::object;
+use crate::object::{FieldStyle, Object, Value};
 
 pub(crate) struct Badge {}
 impl Badge {
     pub(crate) fn from_badge(badge: ApiBadge) -> Object {
         let creator = match badge.creator {
-            Some(creator) => Value::Object(
-                ObjectBuilder::default()
-                    .with_field(Field::new("Id", Value::from(creator.id)))
-                    .with_field(Field::new("Name", Value::from(creator.name)))
-                    .with_field(Field::new("Kind", Value::from(creator.kind.to_string())))
-                    .build(),
-            ),
+            Some(creator) => Value::from(object!(
+                ("Id", creator.id),
+                ("Name", creator.name),
+                ("Kind", creator.kind.to_string())
+            )),
 
             None => Value::from("None"),
         };
 
         let awarder = match badge.awarder {
-            Some(awarder) => Value::Object(
-                ObjectBuilder::default()
-                    .with_field(Field::new("Id", Value::from(awarder.id)))
-                    .with_field(Field::new("Kind", Value::from(awarder.kind.to_string())))
-                    .build(),
-            ),
+            Some(awarder) => Value::from(object!(
+                ("Id", awarder.id),
+                ("Kind", awarder.kind.to_string())
+            )),
 
             None => Value::from("None"),
         };
 
-        let statistics = Value::Object(
-            ObjectBuilder::default()
-                .with_field(Field::new(
-                    "Rewarded today",
-                    Value::from(badge.statistics.awarded_today.to_string()),
-                ))
-                .with_field(Field::new(
-                    "Rewarded in total",
-                    Value::from(badge.statistics.awarded_total.to_string()),
-                ))
-                .with_field(Field::new(
-                    "Rarity",
-                    Value::from(badge.statistics.win_rate_percentage.to_string()),
-                ))
-                .build(),
-        );
+        let statistics = Value::from(object!(
+            ("Rewarded today", badge.statistics.awarded_today.to_string()),
+            (
+                "Rewarded in total",
+                badge.statistics.awarded_total.to_string()
+            ),
+            ("Rarity", badge.statistics.win_rate_percentage.to_string()),
+        ));
 
         let universe = match badge.universe {
-            Some(universe) => Value::Object(
-                ObjectBuilder::default()
-                    .with_field(Field::new("Id", Value::from(universe.id)))
-                    .with_field(Field::new("Name", Value::from(universe.name.to_owned())))
-                    .with_field(Field::new(
-                        "Root place Id",
-                        Value::from(universe.root_place_id),
-                    ))
-                    .build(),
-            ),
+            Some(universe) => Value::from(object!(
+                ("Id", universe.id),
+                ("Name", universe.name.to_owned()),
+                ("Root place Id", universe.root_place_id)
+            )),
 
             None => Value::from("None"),
         };
 
-        ObjectBuilder::default()
-            .with_field(Field::new(
-                "Badge",
-                Value::Object(
-                    ObjectBuilder::default()
-                        .with_field(Field::new("Id", Value::from(badge.id)))
-                        .with_field(Field::new("Name", Value::from(badge.name.to_owned())))
-                        .with_field(Field::new(
-                            "Display name",
-                            Value::from(badge.display_name.to_owned()),
-                        ))
-                        .with_field(Field::new(
-                            "Achievable",
-                            Value::from(badge.enabled.to_string()),
-                        ))
-                        .with_field(Field::new(
-                            "Icon image Id",
-                            Value::from(badge.icon_image_id),
-                        ))
-                        .with_field(Field::new(
-                            "Creation date",
-                            Value::from(badge.created.to_string()),
-                        ))
-                        .with_field(Field::new(
-                            "Last updated",
-                            Value::from(badge.updated.to_string()),
-                        ))
-                        .with_field(
-                            Field::new("Description", Value::from(badge.description.to_owned()))
-                                .with_style(FieldStyle::Description),
-                        )
-                        .with_field(Field::new("Statistics", statistics))
-                        .with_field(Field::new("Creator", creator))
-                        .with_field(Field::new("Awarder", awarder))
-                        .with_field(Field::new("Universe", universe))
-                        .build(),
-                ),
-            ))
-            .build()
+        object!(
+            ("Badge", {
+                ("Id", badge.id),
+                ("Name", badge.name.to_owned()),
+                ("Display name", badge.display_name.to_owned()),
+
+                ("Achievable", badge.enabled.to_string()),
+
+                ("Icon image Id", badge.icon_image_id),
+
+                ("Creation date", badge.created.to_string()),
+                ("Last updated", badge.updated.to_string()),
+
+                ("Description", badge.description.to_owned(), FieldStyle::Description),
+
+                ("Statistics", statistics),
+                ("Creator", creator),
+                ("Awarder", awarder),
+                ("Universe", universe)
+            }),
+        )
     }
 }

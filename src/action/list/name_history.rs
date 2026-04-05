@@ -7,7 +7,8 @@ use roblox_api::{
     client::Client,
 };
 
-use crate::object::{Field, ObjectBuilder, Value};
+use crate::object;
+use crate::object::Value;
 
 pub(crate) async fn user(client: &mut Client, id: Option<u64>) {
     let id = id.unwrap_or(users::v1::authenticated_details(client).await.unwrap().id);
@@ -16,20 +17,17 @@ pub(crate) async fn user(client: &mut Client, id: Option<u64>) {
         .await
         .expect("error: failed to get user's name history");
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new(
+    let object = object!(
+        (
             "Next cursor",
-            Value::from(result.next_cursor.unwrap_or_default().to_owned()),
-        ))
-        .with_field(Field::new(
+            result.next_cursor.unwrap_or_default().to_owned()
+        ),
+        (
             "Previous cursor",
-            Value::from(result.previous_cursor.unwrap_or_default().to_owned()),
-        ))
-        .with_field(Field::new(
-            "Names",
-            Value::Vector(result.names.into_iter().map(Value::from).collect()),
-        ))
-        .build();
+            result.previous_cursor.unwrap_or_default().to_owned()
+        ),
+        ("Names", result.names),
+    );
 
     print!("{}", object);
 }
@@ -45,18 +43,18 @@ pub(crate) async fn group(client: &mut Client, id: u64) {
         .map(|(x, y)| (Value::from(x), Value::from(y.to_string())))
         .collect();
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new(
+    let object = object!(
+        (
             "Next cursor",
-            Value::from(result.next_cursor.unwrap_or_default().to_owned()),
-        ))
-        .with_field(Field::new(
+            result.next_cursor.unwrap_or_default().to_owned()
+        ),
+        (
             "Previous cursor",
-            Value::from(result.previous_cursor.unwrap_or_default().to_owned()),
-        ))
-        .with_field(Field::new("Names", Value::Vector(names)))
-        .with_field(Field::new("Dates", Value::Vector(dates)))
-        .build();
+            result.previous_cursor.unwrap_or_default().to_owned()
+        ),
+        ("Names", names),
+        ("Dates", dates)
+    );
 
     print!("{}", object);
 }

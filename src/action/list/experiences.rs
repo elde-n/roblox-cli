@@ -8,7 +8,8 @@ use roblox_api::{
     client::Client,
 };
 
-use crate::object::{Field, FieldStyle, ObjectBuilder, Value};
+use crate::object;
+use crate::object::{FieldStyle, Value};
 
 fn print_experience_creations(result: GamesResponse) {
     if result.games.is_empty() {
@@ -17,68 +18,27 @@ fn print_experience_creations(result: GamesResponse) {
 
     let mut games = Vec::new();
     for creation in &result.games {
-        games.push(Value::Object(
-            ObjectBuilder::default()
-                .with_field(Field::new(
-                    "Creation",
-                    Value::Object(
-                        ObjectBuilder::default()
-                            .with_field(Field::new("Id", Value::from(creation.id)))
-                            .with_field(Field::new("Name", Value::from(creation.name.to_owned())))
-                            .with_field(Field::new(
-                                "Root place",
-                                Value::Object(
-                                    ObjectBuilder::default()
-                                        .with_field(Field::new(
-                                            "Id",
-                                            Value::from(creation.root_place.id),
-                                        ))
-                                        .build(),
-                                ),
-                            ))
-                            .with_field(
-                                Field::new(
-                                    "Price",
-                                    Value::from(creation.price.unwrap_or_default()),
-                                )
-                                .with_style(FieldStyle::Price),
-                            )
-                            .with_field(Field::new("Visits", Value::from(creation.place_visits)))
-                            .with_field(Field::new(
-                                "Creation date",
-                                Value::from(creation.created.to_string()),
-                            ))
-                            .with_field(Field::new(
-                                "Last updated",
-                                Value::from(creation.updated.to_string()),
-                            ))
-                            .with_field(
-                                Field::new(
-                                    "About",
-                                    Value::from(
-                                        creation.description.to_owned().unwrap_or(String::new()),
-                                    ),
-                                )
-                                .with_style(FieldStyle::Description),
-                            )
-                            .build(),
-                    ),
-                ))
-                .build(),
-        ));
+        games.push(Value::from(object!(
+            ("Creation", {
+                ("Id", creation.id),
+                ("Name", creation.name.to_owned()),
+                ("Root place", {
+                    ("Id", creation.root_place.id),
+                    ("Price", creation.price.unwrap_or_default(), FieldStyle::Price),
+                    ("Visits", creation.place_visits),
+                    ("Creation date", creation.created.to_string()),
+                    ("Last updated", creation.updated.to_string()),
+                    ("About", creation.description.to_owned().unwrap_or(String::new()), FieldStyle::Description),
+                }), 
+            })
+        )));
     }
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new(
-            "Next cursor",
-            Value::from(result.next_cursor.unwrap_or_default().to_owned()),
-        ))
-        .with_field(Field::new(
-            "Previous cursor",
-            Value::from(result.previous_cursor.unwrap_or_default().to_owned()),
-        ))
-        .with_field(Field::new("Games", Value::Vector(games)))
-        .build();
+    let object = object!( 
+        ("Next cursor", result.next_cursor.unwrap_or_default().to_owned()),
+        ("Previous cursor", result.previous_cursor.unwrap_or_default().to_owned()),
+        ("Games", games)
+    );
 
     print!("{}", object);
 }

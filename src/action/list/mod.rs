@@ -10,12 +10,18 @@ use roblox_api::{
     client::Client,
 };
 
+use crate::object;
 use crate::object::{Field, FieldStyle, ObjectBuilder, Value};
 
 pub(crate) mod badges;
 pub(crate) mod experiences;
 pub(crate) mod gamepasses;
 pub(crate) mod name_history;
+
+pub(crate) async fn favorites(client: &mut Client, id: Option<u64>, asset_kind: AssetTypeId) {
+    let id = id.unwrap_or(users::v1::authenticated_details(client).await.unwrap().id);
+    todo!()
+}
 
 pub(crate) async fn inventory(
     client: &mut Client,
@@ -35,7 +41,7 @@ pub(crate) async fn inventory(
     };
 
     let object = if matches!(asset_kind, AssetTypeId::Gamepass) {
-        ObjectBuilder::default()
+        object!()
     } else {
         let result = inventory::v2::user_owned_assets(
             client,
@@ -50,13 +56,11 @@ pub(crate) async fn inventory(
         for asset in &result.assets {
             let mut builder = ObjectBuilder::default().with_field(Field::new(
                 "Asset",
-                Value::Object(
-                    ObjectBuilder::default()
-                        .with_field(Field::new("Id", Value::from(asset.id)))
-                        .with_field(Field::new("Name", Value::from(asset.name.to_owned())))
-                        .with_field(Field::new("Instance Id", Value::from(asset.instance_id)))
-                        .build(),
-                ),
+                Value::from(object!(
+                    ("Id", asset.id),
+                    ("Name", asset.name.to_owned()),
+                    ("Instance Id", asset.instance_id)
+                )),
             ));
 
             if verbose {
@@ -79,14 +83,7 @@ pub(crate) async fn inventory(
                 builder = builder
                     .with_field(Field::new(
                         "Owner",
-                        Value::Object(
-                            ObjectBuilder::default()
-                                .with_field(Field::new(
-                                    "Name",
-                                    Value::from(asset.owner.name.to_owned()),
-                                ))
-                                .build(),
-                        ),
+                        Value::from(object!(("Name", asset.owner.name.to_owned()))),
                     ))
                     .with_field(Field::new(
                         "Creation date",
@@ -98,21 +95,18 @@ pub(crate) async fn inventory(
                     ))
             }
 
-            assets.push(Value::Object(builder.build()));
+            assets.push(Value::from(builder.build()));
         }
 
-        ObjectBuilder::default()
-            .with_field(Field::new(
-                "Next cursor",
-                Value::from(result.next_cursor.unwrap_or_default()),
-            ))
-            .with_field(Field::new(
+        object!(
+            ("Next cursor", result.next_cursor.unwrap_or_default()),
+            (
                 "Previous cursor",
-                Value::from(result.previous_cursor.unwrap_or_default()),
-            ))
-            .with_field(Field::new("Assets", Value::Vector(assets)))
-    }
-    .build();
+                result.previous_cursor.unwrap_or_default()
+            ),
+            ("Assets", assets)
+        )
+    };
 
     print!("{}", object);
 }
@@ -126,82 +120,44 @@ pub(crate) async fn groups(client: &mut Client, id: Option<u64>) {
 
     for (info, role) in &result {
         let owner_field = match &info.owner {
-            Some(owner) => Value::Object(
-                ObjectBuilder::default()
-                    .with_field(Field::new("Id", Value::from(owner.id)))
-                    .with_field(Field::new("Name", Value::from(owner.name.to_owned())))
-                    .with_field(Field::new(
-                        "Display name",
-                        Value::from(owner.display_name.to_owned()),
-                    ))
-                    .build(),
-            ),
+            Some(owner) => Value::from(object!(
+                ("Id", owner.id),
+                ("Name", owner.name.to_owned()),
+                ("Display name", owner.display_name.to_owned()),
+            )),
 
             None => Value::from("None"),
         };
 
         let shout_field = match &info.shout {
-            Some(shout) => Value::Object(
-                ObjectBuilder::default()
-                    .with_field(
-                        Field::new("Content", Value::from(shout.body.to_owned()))
-                            .with_style(FieldStyle::Description),
-                    )
-                    .with_field(Field::new(
-                        "Poster",
-                        Value::Object(
-                            ObjectBuilder::default()
-                                .with_field(Field::new("Id", Value::from(shout.poster.id)))
-                                .with_field(Field::new(
-                                    "Name",
-                                    Value::from(shout.poster.name.to_owned()),
-                                ))
-                                .with_field(Field::new(
-                                    "Display name",
-                                    Value::from(shout.poster.display_name.to_owned()),
-                                ))
-                                .build(),
-                        ),
-                    ))
-                    .with_field(Field::new(
-                        "Posted at",
-                        Value::from(shout.created.to_string()),
-                    ))
-                    .with_field(Field::new(
-                        "Updated at",
-                        Value::from(shout.updated.to_string()),
-                    ))
-                    .build(),
-            ),
+            Some(shout) => Value::from(object!(
+                ("Content", shout.body.to_owned(), FieldStyle::Description),
+                ("Poster", {
+                    ("Id", shout.poster.id),
+                    ("Name", shout.poster.name.to_owned()),
+                    ("Display name", shout.poster.display_name.to_owned()),
+                    ("Posted at", shout.created.to_string()),
+                    ("Updated at", shout.updated.to_string()),
+                })
+            )),
 
             None => Value::from("None"),
         };
 
-        let group = ObjectBuilder::default()
-            .with_field(Field::new("Group", Value::from(info.name.to_owned())))
-            .with_field(Field::new(
-                "Members",
-                Value::from(info.member_count.unwrap_or(0).to_string()),
-            ))
-            .with_field(Field::new("Public", Value::from(info.is_public)))
-            .with_field(Field::new("Premium only", Value::from(info.premium_only)))
-            .with_field(Field::new("Owner", owner_field))
-            .with_field(Field::new("Shout", shout_field))
-            .with_field(
-                Field::new("About", Value::from(info.description.to_owned()))
-                    .with_style(FieldStyle::Description),
-            )
-            .with_field(Field::new(
-                "Role",
-                Value::Object(
-                    ObjectBuilder::default()
-                        .with_field(Field::new("Id", Value::from(role.id)))
-                        .with_field(Field::new("Name", Value::from(role.name.to_owned())))
-                        .with_field(Field::new("Rank", Value::from(role.rank)))
-                        .build(),
-                ),
-            ))
-            .build();
+        let group = object!(
+            ("Group", info.name.to_owned()),
+            ("Members", info.member_count.unwrap_or(0).to_string()),
+            ("Public", info.is_public),
+            ("Premium only", info.premium_only),
+            ("Owner", owner_field),
+            ("Shout", shout_field),
+            ("About", info.description.to_owned(), FieldStyle::Description),
+            ("Role", {
+                ("Id", role.id),
+                ("Name", role.name.to_owned()),
+                ("Rank", role.rank),
+            }),
+        );
 
         print!("{}", group);
     }
@@ -216,127 +172,46 @@ pub(crate) async fn avatar(client: &mut Client, id: Option<u64>) {
     let mut assets = Vec::new();
     for asset in avatar.assets {
         //pub meta: Option<AssetMeta>,
-
-        let object = ObjectBuilder::default()
-            .with_field(Field::new(
-                "Asset",
-                Value::Object(
-                    ObjectBuilder::default()
-                        .with_field(Field::new("Id", Value::from(asset.id)))
-                        .with_field(Field::new("Name", Value::from(asset.name.to_owned())))
-                        .with_field(Field::new(
-                            "Kind name",
-                            Value::from(asset.kind.name.to_owned()),
-                        ))
-                        .with_field(Field::new("Kind Id", Value::from(asset.kind.id)))
-                        .with_field(Field::new(
-                            "Current version Id",
-                            Value::from(asset.current_version_id),
-                        ))
-                        .build(),
-                ),
-            ))
-            .build();
-
-        assets.push(Value::Object(object));
+        assets.push(Value::from(object!(("Asset", {
+            ("Id", asset.id),
+            ("Name", asset.name.to_owned()),
+            ("Kind name", asset.kind.name.to_owned()),
+            ("Kind Id", asset.kind.id),
+            ("Current version Id", asset.current_version_id),
+        }))));
     }
 
     let mut emotes = Vec::new();
     for emote in avatar.emotes {
-        let object = ObjectBuilder::default()
-            .with_field(Field::new(
-                "Emote",
-                Value::Object(
-                    ObjectBuilder::default()
-                        .with_field(Field::new("Id", Value::from(emote.id)))
-                        .with_field(Field::new("Name", Value::from(emote.name.to_owned())))
-                        .with_field(Field::new("Position", Value::from(emote.position)))
-                        .build(),
-                ),
-            ))
-            .build();
-
-        emotes.push(Value::Object(object));
+        emotes.push(Value::from(object!(("Emote", {
+            ("Id", emote.id),
+            ("Name", emote.name.to_owned()),
+            ("Position", emote.position),
+        }))));
     }
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new(
-            "Avatar type",
-            Value::from(avatar.kind.to_string()),
-        ))
-        .with_field(Field::new(
-            "Default shirt",
-            Value::from(avatar.default_shirt_applied),
-        ))
-        .with_field(Field::new(
-            "Default pants",
-            Value::from(avatar.default_pants_applied),
-        ))
-        .with_field(Field::new(
-            "Scales",
-            Value::Object(
-                ObjectBuilder::default()
-                    .with_field(Field::new(
-                        "Height",
-                        Value::from(avatar.scales.height.to_string()),
-                    ))
-                    .with_field(Field::new(
-                        "Width",
-                        Value::from(avatar.scales.width.to_string()),
-                    ))
-                    .with_field(Field::new(
-                        "Head",
-                        Value::from(avatar.scales.head.to_string()),
-                    ))
-                    .with_field(Field::new(
-                        "Depth",
-                        Value::from(avatar.scales.depth.to_string()),
-                    ))
-                    .with_field(Field::new(
-                        "Proportion",
-                        Value::from(avatar.scales.proportion.to_string()),
-                    ))
-                    .with_field(Field::new(
-                        "Body type",
-                        Value::from(avatar.scales.body_type.to_string()),
-                    ))
-                    .build(),
-            ),
-        ))
-        .with_field(Field::new(
-            "Body colors",
-            Value::Object(
-                ObjectBuilder::default()
-                    .with_field(Field::new(
-                        "Head",
-                        Value::from(avatar.body_colors.head.to_string()),
-                    ))
-                    .with_field(Field::new(
-                        "Torso",
-                        Value::from(avatar.body_colors.torso.to_string()),
-                    ))
-                    .with_field(Field::new(
-                        "Right arm",
-                        Value::from(avatar.body_colors.right_arm.to_string()),
-                    ))
-                    .with_field(Field::new(
-                        "Left arm",
-                        Value::from(avatar.body_colors.left_arm.to_string()),
-                    ))
-                    .with_field(Field::new(
-                        "Right leg",
-                        Value::from(avatar.body_colors.right_leg.to_string()),
-                    ))
-                    .with_field(Field::new(
-                        "Left leg",
-                        Value::from(avatar.body_colors.left_leg.to_string()),
-                    ))
-                    .build(),
-            ),
-        ))
-        .with_field(Field::new("Assets", Value::Vector(assets)))
-        .with_field(Field::new("Emotes", Value::Vector(emotes)))
-        .build();
+    let object = object!(
+        ("Avatar type", avatar.kind.to_string()),
+        ("Default shirt", avatar.default_shirt_applied),
+        ("Default pants", avatar.default_pants_applied),
+        ("Scales", {
+            ("Height", avatar.scales.height.to_string()),
+            ("Width", avatar.scales.width.to_string()),
+            ("Head", avatar.scales.head.to_string()),
+            ("Depth", avatar.scales.depth.to_string()),
+            ("Proportion", avatar.scales.proportion.to_string()),
+            ("Body type", avatar.scales.body_type.to_string()),
+        }),
+        ("Body colors", {
+            ("Head", avatar.body_colors.head.to_string()),
+            ("Torso", avatar.body_colors.torso.to_string()),
+            ("Right arm", avatar.body_colors.right_arm.to_string()),
+            ("Left arm", avatar.body_colors.left_arm.to_string()),
+            ("Right leg", avatar.body_colors.right_leg.to_string()),
+            ("Left leg", avatar.body_colors.left_leg.to_string()),
+        }),
+        ("Assets", assets),
+        ("Emotes", emotes));
 
     print!("{}", object);
 }
@@ -352,33 +227,18 @@ pub(crate) async fn outfits(client: &mut Client, id: Option<u64>) {
         // TODO: also display the assets of the outfits
 
         // outfit.outfit_type,
-        outfits.push(Value::Object(
-            ObjectBuilder::default()
-                .with_field(Field::new(
-                    "Outfit",
-                    Value::Object(
-                        ObjectBuilder::default()
-                            .with_field(Field::new("Id", Value::from(outfit.id)))
-                            .with_field(Field::new("Name", Value::from(outfit.name.to_owned())))
-                            .with_field(Field::new(
-                                "Is editable",
-                                Value::from(outfit.is_editable.to_string()),
-                            ))
-                            .build(),
-                    ),
-                ))
-                .build(),
-        ));
+        outfits.push(Value::from(object!(("Outfit", {
+            ("Id", outfit.id),
+            ("Name", outfit.name.to_owned()),
+            ("Is editable", outfit.is_editable.to_string()),
+        }))));
     }
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new("Total", Value::from(result.total)))
-        .with_field(Field::new(
-            "Filtered count",
-            Value::from(result.filtered_count),
-        ))
-        .with_field(Field::new("Outfits", Value::Vector(outfits)))
-        .build();
+    let object = object!(
+        ("Total", result.total),
+        ("Filtered count", result.filtered_count),
+        ("Outfits", outfits)
+    );
 
     print!("{}", object);
 }
@@ -393,101 +253,54 @@ pub(crate) async fn notificatons(client: &mut Client) {
         let client_events_payload = {
             if &notification.content.notification_type == "ExperienceInvitation" {
                 let payload = &notification.content.client_events_payload;
-                Value::Object(
-                    ObjectBuilder::default()
-                        .with_field(Field::new(
-                            "Sender Id",
-                            Value::from(
-                                payload
-                                    .sender_user_id
-                                    .to_owned()
-                                    .unwrap_or("None".to_string()),
-                            ),
-                        ))
-                        .with_field(Field::new(
-                            "Universe Id",
-                            Value::from(
-                                payload.universe_id.to_owned().unwrap_or("None".to_string()),
-                            ),
-                        ))
-                        .with_field(Field::new(
-                            "Place Id",
-                            Value::from(payload.place_id.to_owned().unwrap_or("None".to_string())),
-                        ))
-                        .with_field(Field::new(
-                            "Root place Id",
-                            Value::from(
-                                payload
-                                    .root_place_id
-                                    .to_owned()
-                                    .unwrap_or("None".to_string()),
-                            ),
-                        ))
-                        .with_field(Field::new(
-                            "Trigger",
-                            Value::from(payload.trigger.to_owned().unwrap_or("None".to_string())),
-                        ))
-                        .build(),
-                )
+                Value::from(object!(
+                    (
+                        "Sender Id",
+                        payload
+                            .sender_user_id
+                            .to_owned()
+                            .unwrap_or("None".to_string())
+                    ),
+                    (
+                        "Universe Id",
+                        payload.universe_id.to_owned().unwrap_or("None".to_string())
+                    ),
+                    (
+                        "Place Id",
+                        payload.place_id.to_owned().unwrap_or("None".to_string())
+                    ),
+                    (
+                        "Root place Id",
+                        payload
+                            .root_place_id
+                            .to_owned()
+                            .unwrap_or("None".to_string())
+                    ),
+                    (
+                        "Trigger",
+                        payload.trigger.to_owned().unwrap_or("None".to_string())
+                    )
+                ))
             } else {
                 Value::from("None")
             }
         };
 
-        notifications.push(Value::Object(
-            ObjectBuilder::default()
-                .with_field(Field::new(
-                    "Notification",
-                    Value::Object(
-                        ObjectBuilder::default()
-                            .with_field(Field::new("Id", Value::from(notification.id.to_owned())))
-                            .with_field(Field::new(
-                                "Event date",
-                                Value::from(notification.event_date.to_string()),
-                            ))
-                            .with_field(Field::new(
-                                "Since",
-                                Value::from(notification.timestamp.to_owned()),
-                            ))
-                            .with_field(Field::new(
-                                "Interacted with",
-                                Value::from(notification.is_interacted.to_string()),
-                            ))
-                            .with_field(Field::new(
-                                "Event count",
-                                Value::from(notification.event_count),
-                            ))
-                            .with_field(Field::new(
-                                "Content",
-                                Value::Object(
-                                    ObjectBuilder::default()
-                                        .with_field(Field::new(
-                                            "Notification type",
-                                            Value::from(
-                                                notification.content.notification_type.to_string(),
-                                            ),
-                                        ))
-                                        .with_field(Field::new(
-                                            "Current state",
-                                            Value::from(
-                                                notification.content.current_state.to_string(),
-                                            ),
-                                        ))
-                                        .with_field(Field::new("Content", client_events_payload))
-                                        .build(),
-                                ),
-                            ))
-                            .build(),
-                    ),
-                ))
-                .build(),
-        ));
+        notifications.push(Value::from(object!(("Notification", {
+            ("Id", notification.id.to_owned()),
+            ("Event date", notification.event_date.to_string()),
+            ("Since", notification.timestamp.to_owned()),
+            ("Interacted with", notification.is_interacted.to_string()),
+            ("Event count", notification.event_count),
+            ("Content", {
+                ("Notification type", notification.content.notification_type.to_string()),
+                ("Current state", notification.content.current_state.to_string()),
+                ("Content", client_events_payload),
+            })
+        }))));
     }
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new("Notifications", Value::Vector(notifications)))
-        .build();
-
+    let object = object!(("Notifications", notifications));
     print!("{}", object);
 }
 
@@ -500,91 +313,37 @@ pub(crate) async fn conversations(client: &mut Client) {
     for conversation in result.conversations {
         let mut messages = Vec::new();
         for message in conversation.messages {
-            messages.push(Value::Object(
-                ObjectBuilder::default()
-                    .with_field(Field::new(
-                        "Message",
-                        Value::Object(
-                            ObjectBuilder::default()
-                                .with_field(Field::new("Id", Value::from(message.id)))
-                                .with_field(
-                                    Field::new("Content", Value::from(message.content))
-                                        .with_style(FieldStyle::Description),
-                                )
-                                .with_field(Field::new("Kind", Value::from(message.kind)))
-                                .with_field(Field::new("Sent by", Value::from(message.sender_id)))
-                                .with_field(Field::new(
-                                    "Is deleted",
-                                    Value::from(message.is_deleted.to_string()),
-                                ))
-                                .with_field(Field::new(
-                                    "Creation date",
-                                    Value::from(message.created.to_string()),
-                                ))
-                                .build(),
-                        ),
-                    ))
-                    .build(),
-            ));
+            messages.push(Value::from(object!(("Message", {
+                ("Id", message.id),
+                ("Content", message.content, FieldStyle::Description),
+                ("Kind", message.kind),
+                ("Sent by", message.sender_id),
+                ("Is deleted", message.is_deleted.to_string()),
+                ("Creation date", message.created.to_string()),
+            }))));
         }
 
-        conversations.push(Value::Object(
-            ObjectBuilder::default()
-                .with_field(Field::new(
-                    "Conversation",
-                    Value::Object(
-                        ObjectBuilder::default()
-                            .with_field(Field::new(
-                                "Id",
-                                Value::from(conversation.id.unwrap_or("None".to_string())),
-                            ))
-                            .with_field(Field::new("Name", Value::from(conversation.name)))
-                            .with_field(Field::new("Source", Value::from(conversation.source)))
-                            .with_field(Field::new(
-                                "Creator Id",
-                                Value::from(conversation.creator_id.unwrap_or(0)),
-                            ))
-                            .with_field(Field::new(
-                                "Creation date",
-                                Value::from(conversation.created.to_string()),
-                            ))
-                            .with_field(Field::new(
-                                "Last updated",
-                                Value::from(conversation.updated.to_string()),
-                            ))
-                            .with_field(Field::new(
-                                "Participants",
-                                Value::Vector(
-                                    conversation
-                                        .participants
-                                        .into_iter()
-                                        .map(|x| Value::from(x.to_string()))
-                                        .collect(),
-                                ),
-                            ))
-                            .with_field(Field::new(
-                                "Unread message count",
-                                Value::from(conversation.unread_message_count),
-                            ))
-                            .with_field(Field::new("Messages", Value::Vector(messages)))
-                            .build(),
-                    ),
-                ))
-                .build(),
-        ));
+        conversations.push(Value::from(object!(("Conversation", {
+            ("Id", conversation.id.unwrap_or("None".to_string())),
+            ("Name", conversation.name),
+            ("Source", conversation.source),
+            ("Creator Id", conversation.creator_id.unwrap_or(0)),
+            ("Creation date", conversation.created.to_string()),
+            ("Last updated", conversation.updated.to_string()),
+            ("Participants",conversation.participants),
+            ("Unread message count", conversation.unread_message_count),
+            ("Messages", messages)
+        }))));
     }
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new(
-            "Next cursor",
-            Value::from(result.next_cursor.unwrap_or_default()),
-        ))
-        .with_field(Field::new(
+    let object = object!(
+        ("Next cursor", result.next_cursor.unwrap_or_default()),
+        (
             "Previous cursor",
-            Value::from(result.previous_cursor.unwrap_or_default()),
-        ))
-        .with_field(Field::new("Conversations", Value::Vector(conversations)))
-        .build();
+            result.previous_cursor.unwrap_or_default()
+        ),
+        ("Conversations", conversations)
+    );
 
     print!("{}", object);
 }
@@ -600,81 +359,35 @@ pub(crate) async fn messages(client: &mut Client) {
 
     let mut messages = Vec::new();
     for message in result.collection {
-        let sender = ObjectBuilder::default()
-            .with_field(Field::new("Id", Value::from(message.sender.id)))
-            .with_field(Field::new("Name", Value::from(message.sender.name)))
-            .with_field(Field::new(
-                "Display name",
-                Value::from(message.sender.display_name),
-            ))
-            .with_field(Field::new(
-                "Is verified",
-                Value::from(message.sender.is_verified.to_string()),
-            ))
-            .build();
-
-        let recipient = ObjectBuilder::default()
-            .with_field(Field::new("Id", Value::from(message.recipient.id)))
-            .with_field(Field::new("Name", Value::from(message.recipient.name)))
-            .with_field(Field::new(
-                "Display name",
-                Value::from(message.recipient.display_name),
-            ))
-            .with_field(Field::new(
-                "Is verified",
-                Value::from(message.recipient.is_verified.to_string()),
-            ))
-            .build();
-
-        messages.push(Value::Object(
-            ObjectBuilder::default()
-                .with_field(Field::new(
-                    "Message",
-                    Value::Object(
-                        ObjectBuilder::default()
-                            .with_field(Field::new("Id", Value::from(message.id)))
-                            .with_field(Field::new(
-                                "Subject",
-                                Value::from(message.subject.to_owned()),
-                            ))
-                            .with_field(Field::new("Sender", Value::Object(sender)))
-                            .with_field(Field::new("Recipient", Value::Object(recipient)))
-                            .with_field(Field::new(
-                                "Is read",
-                                Value::from(message.is_read.to_string()),
-                            ))
-                            .with_field(Field::new(
-                                "Is system message",
-                                Value::from(message.is_system_message.to_string()),
-                            ))
-                            .with_field(
-                                Field::new("Content", Value::from(message.body.to_owned()))
-                                    .with_style(FieldStyle::Description),
-                            )
-                            .with_field(Field::new(
-                                "Creation date",
-                                Value::from(message.created.to_string()),
-                            ))
-                            .with_field(Field::new(
-                                "Last updated",
-                                Value::from(message.updated.to_string()),
-                            ))
-                            .build(),
-                    ),
-                ))
-                .build(),
-        ));
+        messages.push(Value::from(object!(("Message", {
+            ("Id", message.id),
+            ("Subject", message.subject.to_owned()),
+            ("Sender", {
+                ("Id", message.sender.id),
+                ("Name", message.sender.name),
+                ("Display name", message.sender.display_name),
+                ("Is verified", message.sender.is_verified.to_string()),
+            }),
+            ("Recipient", {
+                ("Id", message.recipient.id),
+                ("Name", message.recipient.name),
+                ("Display name", message.recipient.display_name),
+                ("Is verified", message.recipient.is_verified.to_string()),
+            }),
+            ("Is read", message.is_read.to_string()),
+            ("Is system message", message.is_system_message.to_string()),
+            ("Content", message.body.to_owned(), FieldStyle::Description),
+            ("Creation date", message.created.to_string()),
+            ("Last updated", message.updated.to_string()),
+        }))));
     }
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new("Current page", Value::from(result.current_page)))
-        .with_field(Field::new("Total pages", Value::from(result.total_pages)))
-        .with_field(Field::new(
-            "Total collection size",
-            Value::from(result.total_collection_size),
-        ))
-        .with_field(Field::new("Messages", Value::Vector(messages)))
-        .build();
+    let object = object!(
+        ("Current page", result.current_page),
+        ("Total pages", result.total_pages),
+        ("Total collection size", result.total_collection_size),
+        ("Messages", messages),
+    );
 
     print!("{}", object);
 }
@@ -689,29 +402,21 @@ pub(crate) async fn followers(client: &mut Client, id: Option<u64>) {
         .users
         .into_iter()
         .map(|user| {
-            Value::Object(
-                ObjectBuilder::default()
-                    .with_field(Field::new("Id", Value::from(user.id)))
-                    .with_field(Field::new(
-                        "Is verified",
-                        Value::from(user.is_verified.unwrap_or(false).to_string()),
-                    ))
-                    .build(),
-            )
+            Value::from(object!(
+                ("Id", user.id),
+                ("Is verified", user.is_verified.unwrap_or(false).to_string()),
+            ))
         })
         .collect();
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new(
-            "Next cursor",
-            Value::from(result.next_cursor.unwrap_or_default()),
-        ))
-        .with_field(Field::new(
+    let object = object!(
+        ("Next cursor", result.next_cursor.unwrap_or_default()),
+        (
             "Previous cursor",
-            Value::from(result.previous_cursor.unwrap_or_default()),
-        ))
-        .with_field(Field::new("Followers", Value::Vector(followers)))
-        .build();
+            result.previous_cursor.unwrap_or_default()
+        ),
+        ("Followers", followers)
+    );
 
     print!("{}", object);
 }
@@ -726,29 +431,21 @@ pub(crate) async fn followings(client: &mut Client, id: Option<u64>) {
         .users
         .into_iter()
         .map(|user| {
-            Value::Object(
-                ObjectBuilder::default()
-                    .with_field(Field::new("Id", Value::from(user.id)))
-                    .with_field(Field::new(
-                        "Is verified",
-                        Value::from(user.is_verified.unwrap_or(false).to_string()),
-                    ))
-                    .build(),
-            )
+            Value::from(object!(
+                ("Id", user.id),
+                ("Is verified", user.is_verified.unwrap_or(false).to_string()),
+            ))
         })
         .collect();
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new(
-            "Next cursor",
-            Value::from(result.next_cursor.unwrap_or_default()),
-        ))
-        .with_field(Field::new(
+    let object = object!(
+        ("Next cursor", result.next_cursor.unwrap_or_default()),
+        (
             "Previous cursor",
-            Value::from(result.previous_cursor.unwrap_or_default()),
-        ))
-        .with_field(Field::new("Followings", Value::Vector(followings)))
-        .build();
+            result.previous_cursor.unwrap_or_default()
+        ),
+        ("Followings", followings)
+    );
 
     print!("{}", object);
 }
@@ -763,29 +460,21 @@ pub(crate) async fn friends(client: &mut Client, id: Option<u64>) {
         .users
         .into_iter()
         .map(|user| {
-            Value::Object(
-                ObjectBuilder::default()
-                    .with_field(Field::new("Id", Value::from(user.id)))
-                    .with_field(Field::new(
-                        "Is verified",
-                        Value::from(user.is_verified.unwrap_or(false).to_string()),
-                    ))
-                    .build(),
-            )
+            Value::from(object!(
+                ("Id", user.id),
+                ("Is verified", user.is_verified.unwrap_or(false).to_string())
+            ))
         })
         .collect();
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new(
-            "Next cursor",
-            Value::from(result.next_cursor.unwrap_or_default()),
-        ))
-        .with_field(Field::new(
+    let object = object!(
+        ("Next cursor", result.next_cursor.unwrap_or_default()),
+        (
             "Previous cursor",
-            Value::from(result.previous_cursor.unwrap_or_default()),
-        ))
-        .with_field(Field::new("Friends", Value::Vector(friends)))
-        .build();
+            result.previous_cursor.unwrap_or_default()
+        ),
+        ("Friends", friends)
+    );
 
     print!("{}", object);
 }
@@ -797,77 +486,27 @@ pub(crate) async fn friend_requests(client: &mut Client) {
 
     let mut friend_requests = Vec::new();
     for request in result.requests {
-        friend_requests.push(Value::Object(
-            ObjectBuilder::default()
-                .with_field(Field::new(
-                    "Friend request",
-                    Value::Object(
-                        ObjectBuilder::default()
-                            .with_field(Field::new(
-                                "Requestor",
-                                Value::Object(
-                                    ObjectBuilder::default()
-                                        .with_field(Field::new(
-                                            "Id",
-                                            Value::from(request.requester.id),
-                                        ))
-                                        .with_field(Field::new(
-                                            "Display name",
-                                            Value::from(request.requester.display_name.to_owned()),
-                                        ))
-                                        .with_field(Field::new(
-                                            "Contact name",
-                                            Value::from(
-                                                request
-                                                    .requester
-                                                    .contact_name
-                                                    .unwrap_or("None".to_string())
-                                                    .to_owned(),
-                                            ),
-                                        ))
-                                        .with_field(Field::new(
-                                            "Universe Id",
-                                            Value::from(request.requester.source_universe_id),
-                                        ))
-                                        //.with_field(Field::new("Origin source", Value::from(   request.requester.origin_source_type.to_string())))
-                                        .with_field(Field::new(
-                                            "Sent at",
-                                            Value::from(request.requester.sent_at.to_string()),
-                                        ))
-                                        .build(),
-                                ),
-                            ))
-                            .with_field(Field::new(
-                                "Mutual friends",
-                                Value::Vector(
-                                    request
-                                        .mutual_friends_list
-                                        .into_iter()
-                                        .map(Value::from)
-                                        .collect(),
-                                ),
-                            ))
-                            .build(),
-                    ),
-                ))
-                .build(),
-        ));
+        friend_requests.push(Value::from(object!(("Friend request", {
+            ("Requestor", {
+                ("Id", request.requester.id),
+                ("Display name", request.requester.display_name.to_owned()),
+                ("Contact name", request.requester.contact_name.unwrap_or("None".to_string()).to_owned()),
+                ("Universe Id", request.requester.source_universe_id.unwrap_or(0)),
+                //("Origin source", request.requester.origin_source_type.to_string()),
+                ("Sent at", request.requester.sent_at.to_string()),
+            }),
+            ("Mutual friends", request.mutual_friends_list),
+        }))));
     }
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new(
-            "Next cursor",
-            Value::from(result.next_cursor.unwrap_or_default()),
-        ))
-        .with_field(Field::new(
+    let object = object!(
+        ("Next cursor", result.next_cursor.unwrap_or_default()),
+        (
             "Previous cursor",
-            Value::from(result.previous_cursor.unwrap_or_default()),
-        ))
-        .with_field(Field::new(
-            "Friend requests",
-            Value::Vector(friend_requests),
-        ))
-        .build();
+            result.previous_cursor.unwrap_or_default()
+        ),
+        ("Friend requests", friend_requests)
+    );
 
     print!("{}", object);
 }

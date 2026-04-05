@@ -133,6 +133,11 @@ async fn main() {
                 }
             }
 
+            ListCommands::Favorites { user_id, kind } => {
+                let kind = AssetTypeId::try_from(kind.as_str()).expect("error: unknown asset kind");
+                action::list::favorites(&mut client, *user_id, kind).await;
+            }
+
             ListCommands::Followers { user_id } => {
                 action::list::followers(&mut client, *user_id).await
             }

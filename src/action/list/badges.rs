@@ -7,29 +7,26 @@ use roblox_api::{
     client::Client,
 };
 
-use crate::{
-    object::{Field, ObjectBuilder, Value},
-    objects::badge::Badge,
-};
+use crate::{object, object::Value, objects::badge::Badge};
 
 fn object_printer(result: BadgesResponse) {
     let badges: Vec<Value> = result
         .badges
         .into_iter()
-        .map(|badge| Value::Object(Badge::from_badge(badge)))
+        .map(|badge| Value::from(Badge::from_badge(badge)))
         .collect();
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new(
+    let object = object!(
+        (
             "Next cursor",
-            Value::from(result.next_cursor.unwrap_or_default().to_owned()),
-        ))
-        .with_field(Field::new(
+            result.next_cursor.unwrap_or_default().to_owned()
+        ),
+        (
             "Previous cursor",
-            Value::from(result.previous_cursor.unwrap_or_default().to_owned()),
-        ))
-        .with_field(Field::new("Badges", Value::Vector(badges)))
-        .build();
+            result.previous_cursor.unwrap_or_default().to_owned()
+        ),
+        ("Badges", badges)
+    );
 
     print!("{}", object);
 }

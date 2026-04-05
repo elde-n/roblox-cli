@@ -3,10 +3,7 @@ use roblox_api::{
     client::Client,
 };
 
-use crate::{
-    Config,
-    object::{Field, FieldStyle, ObjectBuilder, Value},
-};
+use crate::{Config, object, object::FieldStyle};
 
 // TODO: move tokio::spawn nest in here
 //async fn fetch_account_status() ->  {}
@@ -60,45 +57,17 @@ pub(crate) async fn print(cfg: &Config) {
             Ok((account, info, details, currency, is_premium, presences, gender, country_code)) => {
                 let presence = presences.first().unwrap();
 
-                let object = ObjectBuilder::default()
-                    .with_field(Field::new(
-                        "Account",
-                        Value::Object(
-                            ObjectBuilder::default()
-                                .with_field(Field::new("Id", Value::from(details.id)))
-                                .with_field(Field::new(
-                                    "Aliased name",
-                                    Value::from(account.name.to_owned()),
-                                ))
-                                .with_field(Field::new(
-                                    "Display name",
-                                    Value::from(details.display_name.to_owned()),
-                                ))
-                                .with_field(
-                                    Field::new("Gender", Value::from(gender.to_string()))
-                                        .with_style(FieldStyle::Enum),
-                                )
-                                .with_field(Field::new(
-                                    "Creation date",
-                                    Value::from(info.created.to_string()),
-                                ))
-                                .with_field(Field::new("Premium", Value::from(*is_premium)))
-                                .with_field(
-                                    Field::new("Robux", Value::from(currency.to_owned()))
-                                        .with_style(FieldStyle::Price),
-                                )
-                                .with_field(
-                                    Field::new("Country", Value::from(country_code.to_owned()))
-                                        .with_style(FieldStyle::Enum),
-                                )
-                                .with_field(Field::new(
-                                    "Presence",
-                                    Value::from(presence.status.to_owned()),
-                                ))
-                                .build(),
-                        ),
-                    ))
-                    .build();
+                let object = object!(("Account", {
+                    ("Id", details.id),
+                    ("Aliased name", account.name.to_owned()),
+                    ("Display name",details.display_name.to_owned()),
+                    ("Gender", gender.to_string(), FieldStyle::Enum),
+                    ("Creation date", info.created.to_string()),
+                    ("Premium", *is_premium),
+                    ("Robux", currency.to_owned(), FieldStyle::Price),
+                    ("Country", country_code.to_owned(), FieldStyle::Enum),
+                    ("Presence", presence.status.to_owned())
+                }));
 
                 print!("{}", object);
             }

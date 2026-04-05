@@ -4,7 +4,8 @@ use roblox_api::{
     client::Client,
 };
 
-use crate::object::{Field, FieldStyle, ObjectBuilder, Value};
+use crate::object;
+use crate::object::{FieldStyle, Value};
 
 pub(crate) async fn place(client: &mut Client, place_id: u64) {
     let place_details = games::v1::batch_place_details(client, &[place_id])
@@ -22,44 +23,28 @@ pub(crate) async fn place(client: &mut Client, place_id: u64) {
 
     let mut gamepasses = Vec::new();
     for gamepass in &result.gamepasses {
-        let object = ObjectBuilder::default()
-            .with_field(Field::new(
-                "Gamepass",
-                Value::Object(
-                    ObjectBuilder::default()
-                        .with_field(Field::new("Id", Value::from(gamepass.id)))
-                        .with_field(Field::new("Name", Value::from(gamepass.name.to_owned())))
-                        .with_field(Field::new(
-                            "Display name",
-                            Value::from(gamepass.display_name.to_owned()),
-                        ))
-                        .with_field(
-                            Field::new(
-                                "Price",
-                                Value::from(gamepass.price.unwrap_or(0).to_string()),
-                            )
-                            .with_style(FieldStyle::Price),
-                        )
-                        .with_field(Field::new("Owned", Value::from(gamepass.owned)))
-                        .build(),
-                ),
-            ))
-            .build();
+        let object = object!(("Gamepass", {
+            ("Id", gamepass.id),
+            ("Name", gamepass.name.to_owned()),
+            ("Display name", gamepass.display_name.to_owned()),
+            ("Price", gamepass.price.unwrap_or(0).to_string(), FieldStyle::Price),
+            ("Owned", gamepass.owned),
+        }));
 
-        gamepasses.push(Value::Object(object));
+        gamepasses.push(Value::from(object));
     }
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new(
+    let object = object!(
+        (
             "Next cursor",
-            Value::from(result.next_cursor.unwrap_or_default().to_owned()),
-        ))
-        .with_field(Field::new(
+            result.next_cursor.unwrap_or_default().to_owned()
+        ),
+        (
             "Previous cursor",
-            Value::from(result.previous_cursor.unwrap_or_default().to_owned()),
-        ))
-        .with_field(Field::new("Gamepasses", Value::Vector(gamepasses)))
-        .build();
+            result.previous_cursor.unwrap_or_default().to_owned()
+        ),
+        ("Gamepasses", gamepasses),
+    );
 
     print!("{}", object);
 }
@@ -73,50 +58,25 @@ pub(crate) async fn user(client: &mut Client, id: Option<u64>) {
 
     let mut gamepasses = Vec::new();
     for gamepass in &result {
-        let creator = ObjectBuilder::default()
-            .with_field(Field::new("Id", Value::from(gamepass.creator.id)))
-            .with_field(Field::new(
-                "Name",
-                Value::from(gamepass.creator.name.to_owned()),
-            ))
+        let creator = object!(
+            ("Id", gamepass.creator.id),
+            ("Name", gamepass.creator.name.to_owned()),
             // TODO
-            // .with_field(Field::new(
-            //     "Kind",
-            //     Value::from(gamepass.creator.kind.to_string()),
-            // ))
-            .build();
+            // ("Kind", gamepass.creator.kind.to_string()),
+        );
 
-        let object = ObjectBuilder::default()
-            .with_field(Field::new(
-                "Gamepass",
-                Value::Object(
-                    ObjectBuilder::default()
-                        .with_field(Field::new("Id", Value::from(gamepass.id)))
-                        .with_field(Field::new("Name", Value::from(gamepass.name.to_owned())))
-                        .with_field(Field::new("On sale", Value::from(gamepass.on_sale)))
-                        .with_field(
-                            Field::new(
-                                "Price",
-                                Value::from(gamepass.price.unwrap_or(0).to_string()),
-                            )
-                            .with_style(FieldStyle::Price),
-                        )
-                        .with_field(Field::new("Creator", Value::Object(creator)))
-                        .with_field(
-                            Field::new("About", Value::from(gamepass.description.to_owned()))
-                                .with_style(FieldStyle::Description),
-                        )
-                        .build(),
-                ),
-            ))
-            .build();
+        let object = object!(("Gamepass", {
+            ("Id", gamepass.id),
+            ("Name", gamepass.name.to_owned()),
+            ("On sale", gamepass.on_sale),
+            ("Price", gamepass.price.unwrap_or(0).to_string(), FieldStyle::Price),
+            ("Creator", creator),
+            ("About", gamepass.description.to_owned(), FieldStyle::Description),
+        }));
 
-        gamepasses.push(Value::Object(object));
+        gamepasses.push(Value::from(object));
     }
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new("Gamepasses", Value::Vector(gamepasses)))
-        .build();
-
+    let object = object!(("Gamepasses", gamepasses));
     print!("{}", object);
 }

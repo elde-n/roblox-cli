@@ -37,13 +37,14 @@ pub(crate) enum ListCommands {
         group_id: Option<u64>,
     },
 
-    // /// List favorited assets of `user`
-    // Favorites {
-    //     #[arg(short, long)]
-    //     kind: String,
-    //     #[arg(short, long)]
-    //     user_id: Option<u64>,
-    // },
+    /// List favorited assets of `user`
+    Favorites {
+        #[arg(short, long)]
+        kind: String,
+        #[arg(short, long)]
+        user_id: Option<u64>,
+    },
+
     /// List the users the `user` is being followed by
     Followers {
         #[arg(short, long)]

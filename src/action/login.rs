@@ -2,10 +2,7 @@ use std::io::Write;
 
 use roblox_api::{api::auth_token_service, client::Client};
 
-use crate::{
-    config::Account,
-    object::{Field, ObjectBuilder, Value},
-};
+use crate::{config::Account, object};
 
 pub(crate) async fn quick_login(client: &mut Client, account: &Account) {
     // TODO: print authenticated account and prompt first
@@ -19,55 +16,36 @@ pub(crate) async fn quick_login(client: &mut Client, account: &Account) {
         .await
         .expect("error: failed to create authentication login ticket");
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new(
-            "Token",
-            Value::Object(
-                ObjectBuilder::default()
-                    .with_field(Field::new("Code", Value::from(token.code.clone())))
-                    .with_field(Field::new("Status", Value::from(token.status)))
-                    .with_field(Field::new(
-                        "Private key",
-                        Value::from(token.private_key.clone()),
-                    ))
-                    .with_field(Field::new(
-                        "Expiration time",
-                        Value::from(token.expiration_time.to_string()),
-                    ))
-                    .with_field(Field::new(
-                        "QR code image url",
-                        Value::from(format!(
-                            "{}/login/qr-code-image?key={}&code={}",
-                            auth_token_service::v1::URL,
-                            token.private_key,
-                            token.code
-                        )),
-                    ))
-                    .build(),
+    let object = object!(
+        ("Token", {
+            ("Code", token.code.clone()),
+            ("Status", token.status),
+            ("Private key", token.private_key.clone()),
+            ("Expiration time", token.expiration_time.to_string()),
+            ("QR code image url", format!(
+                "{}/login/qr-code-image?key={}&code={}",
+                auth_token_service::v1::URL,
+                token.private_key,
+                token.code)
             ),
-        ))
-        .build();
+        }),
+    );
 
     print!("{}", object);
 }
 
 pub(crate) async fn authorize_login(client: &mut Client, code: &str) {
-    let info = auth_token_service::v1::inspect_code(client, code).await;
+    let _ = auth_token_service::v1::inspect_code(client, code).await;
     let info = auth_token_service::v1::inspect_code(client, code)
         .await
         .expect("error: failed to inspect authentication code");
 
-    let object = ObjectBuilder::default()
-        .with_field(Field::new(
-            "Info",
-            Value::Object(
-                ObjectBuilder::default()
-                    .with_field(Field::new("Location", Value::from(info.location)))
-                    .with_field(Field::new("Device info", Value::from(info.device_info)))
-                    .build(),
-            ),
-        ))
-        .build();
+    let object = object!(
+        ("Info", {
+            ("Location", info.location),
+            ("Device info", info.device_info)
+        })
+    );
 
     print!("{}", object);
 

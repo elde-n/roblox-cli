@@ -65,33 +65,40 @@ impl std::fmt::Display for Object {
     }
 }
 
+macro_rules! impl_from_primitives_for_value {
+    ($($t:ty),* $(,)?) => {
+        $(
+            impl From<$t> for Value {
+                fn from(v: $t) -> Self {
+                    Value::String(v.to_string())
+                }
+            }
+        )*
+    };
+}
+
+impl_from_primitives_for_value!(
+    u8, u16, u32, u64, usize, i8, i16, i32, i64, isize, f32, f64, &str, String
+);
+
 impl From<bool> for Value {
     fn from(value: bool) -> Self {
         Self::Bool(value)
     }
 }
 
-impl From<&str> for Value {
-    fn from(value: &str) -> Self {
-        Self::String(value.to_string())
+impl From<Object> for Value {
+    fn from(value: Object) -> Self {
+        Self::Object(value)
     }
 }
 
-impl From<String> for Value {
-    fn from(value: String) -> Self {
-        Self::String(value)
-    }
-}
-
-impl From<u8> for Value {
-    fn from(value: u8) -> Self {
-        Self::String(value.to_string())
-    }
-}
-
-impl From<u64> for Value {
-    fn from(value: u64) -> Self {
-        Self::String(value.to_string())
+impl<T> From<Vec<T>> for Value
+where
+    T: Into<Value>,
+{
+    fn from(value: Vec<T>) -> Self {
+        Self::Vector(value.into_iter().map(Into::into).collect())
     }
 }
 
@@ -240,27 +247,76 @@ impl Field {
     }
 }
 
+mod object {
+    #[macro_export]
+    macro_rules! object {
+        {} => ($crate::object::ObjectBuilder::default().build());
+
+        ( $( $f:tt ),* $(,)? ) => {{
+            let mut builder = $crate::object::ObjectBuilder::default();
+            $(
+                builder = builder.with_field(object!(@field $f));
+            )*
+            builder.build()
+        }};
+
+        // nested object: ("Key", { (...) })
+        (@field ($key:expr, { $( $inner:tt ),* $(,)? } ) ) => {
+            $crate::object::Field::new($key, $crate::object::Value::Object(object!( $( $inner ),* )))
+        };
+
+        // vec with style: ("Key", vec![ ... ], Style)
+        (@field ($key:expr, vec![ $($elem:expr),* $(,)? ], $style:expr) ) => {
+            $crate::object::Field::new($key, $crate::object::Value::from(vec![ $( $elem ),* ])).with_style($style)
+        };
+
+        // any value with style: ("Key", val, Style)
+        (@field ($key:expr, $val:expr, $style:expr) ) => {
+            $crate::object::Field::new($key, $crate::object::Value::from($val)).with_style($style)
+        };
+
+        // vec without style: ("Key", vec![ ... ])
+        (@field ($key:expr, vec![ $($elem:expr),* $(,)? ] ) ) => {
+            $crate::object::Field::new($key, $crate::object::Value::from(vec![ $( $elem ),* ]))
+        };
+
+        // plain pair: ("Key", val)
+        (@field ($key:expr, $val:expr) ) => {
+            $crate::object::Field::new($key, $crate::object::Value::from($val))
+        };
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Field, ObjectBuilder, Value};
+    use crate::object::FieldStyle;
 
     #[test]
     fn object() {
+        use super::{Field, ObjectBuilder, Value};
+
         let object = ObjectBuilder::default()
             .with_field(Field::new("Test", Value::from("hello")))
-            .with_field(Field::new("Test 2", Value::Bool(true)))
+            .with_field(Field::new("Test 2", Value::from(true)))
             .with_field(Field::new(
                 "Child",
-                Value::Object(
+                Value::from(
                     ObjectBuilder::default()
                         .with_field(Field::new(
                             "Descendant",
-                            Value::Object(
+                            Value::from(
                                 ObjectBuilder::default()
-                                    .with_field(Field::new(
-                                        "Points",
-                                        Value::Vector(vec![Value::from("120.510")]),
-                                    ))
+                                    .with_field(
+                                        Field::new(
+                                            "Points",
+                                            Value::from(vec![
+                                                Value::from("120.510"),
+                                                Value::from("test"),
+                                                Value::from("1939"),
+                                            ]),
+                                        )
+                                        .with_style(FieldStyle::Enum),
+                                    )
                                     .build(),
                             ),
                         ))
@@ -268,6 +324,22 @@ mod tests {
                 ),
             ))
             .build();
+
+        println!("{}", object.to_string());
+    }
+
+    #[test]
+    fn object_macro() {
+        use crate::object;
+        let object = object!(
+            ("Test", "hello"),
+            ("Test2", true),
+            ("Child", {
+                ("Descendant", {
+                    ("Points", vec!["120.510", "test", "1939"], FieldStyle::Enum)
+                })
+            })
+        );
 
         println!("{}", object.to_string());
     }

@@ -69,6 +69,7 @@ pub(crate) fn run(account: &Account, id: u64, job_id: Option<&str>) {
 
             let home = dirs::home_dir().unwrap();
             let mut cookie_file = File::options()
+                .create(true)
                 .write(true)
                 .open(home.join(SOBER_COOKIES_PATH))
                 .unwrap();
