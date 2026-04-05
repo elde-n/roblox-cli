@@ -2,7 +2,7 @@
 name = "roblox-cli"
 readme = "README.md"
 description = "Roblox interface in the terminal"
-repository = "https://github.com/elde-n/roblox-cli"
+repository = "https://codeberg.org/roblox-tools/roblox-cli"
 
 version = "0.1.1"
 edition = "2024"
