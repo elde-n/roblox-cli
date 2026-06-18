@@ -4,7 +4,7 @@ readme = "README.md"
 description = "Roblox interface in the terminal"
 repository = "https://codeberg.org/roblox-tools/roblox-cli"
 
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 license = "GPL-3.0-only"
 
