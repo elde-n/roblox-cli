@@ -25,28 +25,8 @@ async fn main() {
     let cli = Command::parse();
     let mut cfg: Config = confy::load(env!("CARGO_BIN_NAME"), Some("config")).unwrap();
 
-    let account = match cli.account {
-        Some(name) => {
-            let mut filter = cfg
-                .accounts
-                .iter()
-                .filter(|x| x.name.to_lowercase() == name.to_lowercase());
-            filter
-                .next()
-                .expect(&format!("error: account with username: {name} not found"))
-        }
-
-        _ => cfg.accounts.first().expect("error: no account entry found"),
-    };
-
-    let mut client = Client::from_cookie(Cookie::from(account.cookie.as_str()));
-
-    match &cli.command {
-        Commands::Status => {
-            action::status::print(&cfg).await;
-        }
-
-        Commands::Add(add) => match &add.command {
+    if let Commands::Add(add) = &cli.command {
+        match &add.command {
             AddCommands::Account { name, cookie } => {
                 let unique_name = cfg
                     .accounts
@@ -66,8 +46,34 @@ async fn main() {
                 confy::store(env!("CARGO_BIN_NAME"), Some("config"), cfg).unwrap();
 
                 println!("info: added account: {name} to the list");
+                return;
             }
-        },
+        }
+    }
+
+    let account = match cli.account {
+        Some(name) => {
+            let mut filter = cfg
+                .accounts
+                .iter()
+                .filter(|x| x.name.to_lowercase() == name.to_lowercase());
+            filter
+                .next()
+                .expect(&format!("error: account with username: {name} not found"))
+        }
+
+        _ => cfg
+            .accounts
+            .first()
+            .expect("error: no account entry found, use: `rbx add account <NAME> <COOKIE>``"),
+    };
+
+    let mut client = Client::from_cookie(Cookie::from(account.cookie.as_str()));
+
+    match &cli.command {
+        Commands::Status => {
+            action::status::print(&cfg).await;
+        }
 
         Commands::Info(info) => match &info.command {
             InfoCommands::Asset { id } => {
@@ -101,7 +107,7 @@ async fn main() {
 
             DownloadCommands::Thumbnail { kind, id, size } => {
                 let kind = ThumbnailRequestType::try_from(kind.as_str())
-                    .expect("error: unknown thumnbail kind");
+                    .expect("error: unknown thumbnail kind");
                 let size = match size {
                     Some(size) => ThumbnailSize::try_from(size.as_str())
                         .expect("error: unknown thumbnail size"),
@@ -205,5 +211,7 @@ async fn main() {
                 action::login::authorize_login(&mut client, &code).await
             }
         },
+
+        _ => unreachable!(),
     }
 }
